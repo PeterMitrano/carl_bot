@@ -29,12 +29,16 @@ include_directories(
 ## Declare a cpp executable
 add_executable(carl_interactive_manipulation src/carl_interactive_manipulation.cpp)
 add_executable(create_parking_spots src/create_parking_spots.cpp)
+add_executable(clickable_interaction src/clickable_interaction.cpp)
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(carl_interactive_manipulation
   ${catkin_LIBRARIES}
 )
 target_link_libraries(create_parking_spots
+  ${catkin_LIBRARIES}
+)
+target_link_libraries(clickable_interaction
   ${catkin_LIBRARIES}
 )
 ## Add cmake target dependencies of the executable/library
@@ -45,7 +49,7 @@ add_dependencies(${PROJECT_NAME} wpi_jaco_msgs_gencpp rail_pick_and_place_msgs_g
 #############
 
 ## Mark executables and/or libraries for installation
-install(TARGETS ${PROJECT_NAME} create_parking_spots
+install(TARGETS ${PROJECT_NAME} create_parking_spots clickable_interaction
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
