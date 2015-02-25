@@ -74,7 +74,7 @@ private:
   * @param frame_id the frame id, or link name, to be used to create the marker
   * @return the interactive marker to be used as a clickable surface
   */
-  visualization_msgs::InteractiveMarker createSurface(std::string frame_id);
+  visualization_msgs::InteractiveMarker createSurface(std::string frame_id, const urdf::Geometry *geom);
 
   /**
   * /brief Callback function for when floor marker is clicked. Sets move_base goal to carl

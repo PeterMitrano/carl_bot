@@ -17,37 +17,38 @@ int main(int argc, char **argv)
 ClickableInteraction::ClickableInteraction()
     : move_base_client_("move_base", true),
       arm_client_("carl_moveit_wrapper/move_to_pose", true),
-      server_("parking_markers")
+      server_("clickable_markers")
 {
-  ROS_INFO("waiting for servers...");
-
-
-  //first, connect to the two actionlib servers
-  bool status = move_base_client_.waitForServer();
-
-  if (!status)
-  {
-    ROS_INFO("Couldn't connect to move_base in time...");
-  }
-  else
-  {
-    ROS_INFO("connected to move_base");
-
-    status = arm_client_.waitForServer();
-
-    if (!status)
-    {
-      ROS_INFO("Couldn't connect to carl_moveit_wrapper/move_to_pose in time...");
-    }
-    else
-    {
-
-      ROS_INFO("connected to carl_moveit_wrapper/move_to_pose");
-
-      initializeMarkers();
-
-    }
-  }
+  initializeMarkers();
+//  ROS_INFO("waiting for servers...");
+//
+//
+//  //first, connect to the two actionlib servers
+//  bool status = move_base_client_.waitForServer();
+//
+//  if (!status)
+//  {
+//    ROS_INFO("Couldn't connect to move_base in time...");
+//  }
+//  else
+//  {
+//    ROS_INFO("connected to move_base");
+//
+//    status = arm_client_.waitForServer();
+//
+//    if (!status)
+//    {
+//      ROS_INFO("Couldn't connect to carl_moveit_wrapper/move_to_pose in time...");
+//    }
+//    else
+//    {
+//
+//      ROS_INFO("connected to carl_moveit_wrapper/move_to_pose");
+//
+//      initializeMarkers();
+//
+//    }
+//  }
 }
 
 void ClickableInteraction::initializeMarkers()
@@ -83,7 +84,7 @@ void ClickableInteraction::initializeMarkers()
       else if (isSurface(link_name))
       {
         ROS_INFO("creating surface %s", link_name.c_str());
-        visualization_msgs::InteractiveMarker marker = createSurface(link_name);
+        visualization_msgs::InteractiveMarker marker = createSurface(link_name,link->collision->geometry.get());
         surface_links_.insert(link_pair);
         server_.insert(marker, boost::bind(&ClickableInteraction::onSurfaceClick, this, _1));
       }
@@ -126,7 +127,7 @@ void ClickableInteraction::onSurfaceClick(const visualization_msgs::InteractiveM
     LinkMap::iterator itr;
 
     //go through all the nav goals, find the closest one
-    float min_dist = 1.6; //you have to be at most 0.6 meter away
+    float min_dist = 1000; //you have to be at most 0.6 meter away
     Link_ptr closest_parking_spot;
 
     tf::StampedTransform transform;
@@ -196,19 +197,26 @@ void ClickableInteraction::onSurfaceClick(const visualization_msgs::InteractiveM
 
 
         geometry_msgs::PoseStamped trans_arm_pose;
-        listener_.transformPose("base_footprint", arm_pose, trans_arm_pose);
-        trans_arm_pose.header=arm_pose.header;
+        listener_.transformPose("base_footprint", ros::Time(0), arm_pose, arm_pose.header.frame_id, trans_arm_pose);
+        trans_arm_pose.header = arm_pose.header;
 
         //send action goal
         carl_moveit::MoveToPoseGoal goal;
         goal.pose = trans_arm_pose.pose;
+
+        ROS_INFO("POSITION XYZ: %f, %f, %f", goal.pose.position.x, goal.pose.position.y, goal.pose.position.z);
+        ROS_INFO("ORIENTATION XYZW: %f, %f, %f, %f", goal.pose.orientation.x,
+            goal.pose.orientation.y,
+            goal.pose.orientation.z,
+            goal.pose.orientation.w);
+
         arm_client_.sendGoal(goal);
 
         success = move_base_client_.waitForResult();
 
         if (success > 0)
         {
-          ROS_INFO("TASK ACCOMPLISHED");
+          ROS_INFO("TASK ACCOMPLISHED: %d", success);
         }
         else
         {
@@ -233,7 +241,10 @@ bool ClickableInteraction::moveToPose(geometry_msgs::Pose arm_pose, std_msgs::He
   move_base_msgs::MoveBaseGoal goal;
   goal.target_pose = target_pose;
 
-  ROS_INFO("moving to %f, %f in frame %s", target_pose.pose.orientation.x, target_pose.pose.orientation.y, header.frame_id.c_str());
+  ROS_INFO("moving to %f, %f in frame %s",
+      target_pose.pose.orientation.x,
+      target_pose.pose.orientation.y,
+      header.frame_id.c_str());
 //send action goal
   move_base_client_.sendGoal(goal);
 
@@ -289,7 +300,8 @@ visualization_msgs::InteractiveMarker ClickableInteraction::createParkingSpot(st
   return int_marker;
 }
 
-visualization_msgs::InteractiveMarker ClickableInteraction::createSurface(std::string frame_id)
+visualization_msgs::InteractiveMarker ClickableInteraction::createSurface(std::string frame_id,
+    const urdf::Geometry *geom)
 {
   visualization_msgs::InteractiveMarker int_marker;
   int_marker.header.frame_id = frame_id;
@@ -300,17 +312,69 @@ visualization_msgs::InteractiveMarker ClickableInteraction::createSurface(std::s
   control.interaction_mode = visualization_msgs::InteractiveMarkerControl::BUTTON;
   control.name = "button";
 
-  visualization_msgs::Marker box;
-  box.type = visualization_msgs::Marker::CUBE;
-  box.scale.x = 0.25;
-  box.scale.y = 0.25;
-  box.scale.z = 0.15;
-  box.color.r = 0;
-  box.color.g = 0.25;
-  box.color.b = 0.5;
-  box.color.a = 1;
+  //create marker & common fields
+  visualization_msgs::Marker marker;
+  marker.color.r = 0;
+  marker.color.g = 0.25;
+  marker.color.b = 0.5;
+  marker.color.a = 1;
 
-  control.markers.push_back(box);
+
+  switch (geom->type)
+  {
+    case urdf::Geometry::BOX:
+    {
+      urdf::Vector3 dim = dynamic_cast<const urdf::Box *>(geom)->dim;
+      marker.type = visualization_msgs::Marker::CUBE;
+      marker.scale.x = dim.x;
+      marker.scale.y = dim.y;
+      marker.scale.z = dim.z;
+      ROS_INFO("surface box...");
+      break;
+    }
+    case urdf::Geometry::SPHERE:
+    {
+      double rad = dynamic_cast<const urdf::Sphere *>(geom)->radius;
+      marker.type = visualization_msgs::Marker::SPHERE;
+      marker.scale.x = rad;
+      marker.scale.y = rad;
+      marker.scale.z = rad;
+      break;
+    }
+    case urdf::Geometry::CYLINDER:
+    {
+      double rad = dynamic_cast<const urdf::Cylinder *>(geom)->radius;
+      double len = dynamic_cast<const urdf::Cylinder *>(geom)->length;
+      marker.type = visualization_msgs::Marker::CYLINDER;
+      marker.scale.x = rad;
+      marker.scale.y = rad;
+      marker.scale.z = len;
+      break;
+    }
+    case urdf::Geometry::MESH:
+    {
+      const urdf::Mesh *mesh = dynamic_cast<const urdf::Mesh *>(geom);
+      marker.type = visualization_msgs::Marker::MESH_RESOURCE;
+      if (!mesh->filename.empty())
+      {
+        marker.mesh_resource = mesh->filename;
+      }
+      else
+        ROS_WARN("Empty mesh filename");
+      break;
+    }
+    default:
+    {
+      ROS_ERROR("Unknown geometry type: %d", (int) geom->type);
+      marker.type = visualization_msgs::Marker::CUBE;
+      marker.scale.x = 1;
+      marker.scale.y = 1;
+      marker.scale.z = 0.05;
+    }
+  }
+
+
+  control.markers.push_back(marker);
   control.always_visible = true;
   int_marker.controls.push_back(control);
 
