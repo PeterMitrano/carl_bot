@@ -19,36 +19,36 @@ ClickableInteraction::ClickableInteraction()
       arm_client_("carl_moveit_wrapper/move_to_pose", true),
       server_("clickable_markers")
 {
-  initializeMarkers();
-//  ROS_INFO("waiting for servers...");
-//
-//
-//  //first, connect to the two actionlib servers
-//  bool status = move_base_client_.waitForServer();
-//
-//  if (!status)
-//  {
-//    ROS_INFO("Couldn't connect to move_base in time...");
-//  }
-//  else
-//  {
-//    ROS_INFO("connected to move_base");
-//
-//    status = arm_client_.waitForServer();
-//
-//    if (!status)
-//    {
-//      ROS_INFO("Couldn't connect to carl_moveit_wrapper/move_to_pose in time...");
-//    }
-//    else
-//    {
-//
-//      ROS_INFO("connected to carl_moveit_wrapper/move_to_pose");
-//
-//      initializeMarkers();
-//
-//    }
-//  }
+
+  ROS_INFO("waiting for servers...");
+
+
+  //first, connect to the two actionlib servers
+  bool status = move_base_client_.waitForServer();
+
+  if (!status)
+  {
+    ROS_INFO("Couldn't connect to move_base in time...");
+  }
+  else
+  {
+    ROS_INFO("connected to move_base");
+
+    status = arm_client_.waitForServer();
+
+    if (!status)
+    {
+      ROS_INFO("Couldn't connect to carl_moveit_wrapper/move_to_pose in time...");
+    }
+    else
+    {
+
+      ROS_INFO("connected to carl_moveit_wrapper/move_to_pose");
+
+      initializeMarkers();
+
+    }
+  }
 }
 
 void ClickableInteraction::initializeMarkers()
@@ -153,6 +153,8 @@ void ClickableInteraction::onSurfaceClick(const visualization_msgs::InteractiveM
         }
       }
     }
+        link->collision->geometry.get();
+        ROS_INFO("geometry isn't null");
 
     if (closest_parking_spot == NULL)
     {
@@ -319,17 +321,16 @@ visualization_msgs::InteractiveMarker ClickableInteraction::createSurface(std::s
   marker.color.b = 0.5;
   marker.color.a = 1;
 
-
   switch (geom->type)
   {
     case urdf::Geometry::BOX:
     {
+      ROS_INFO("surface box...");
       urdf::Vector3 dim = dynamic_cast<const urdf::Box *>(geom)->dim;
       marker.type = visualization_msgs::Marker::CUBE;
       marker.scale.x = dim.x;
       marker.scale.y = dim.y;
       marker.scale.z = dim.z;
-      ROS_INFO("surface box...");
       break;
     }
     case urdf::Geometry::SPHERE:
