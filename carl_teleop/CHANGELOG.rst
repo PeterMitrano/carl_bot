@@ -2,6 +2,23 @@
 Changelog for package carl_teleop
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.0.16 (2015-02-17)
+-------------------
+* Changed teleop segment call to segment_auto
+* Contributors: David Kent
+
+0.0.15 (2015-02-10)
+-------------------
+
+0.0.14 (2015-02-06)
+-------------------
+* home/retract action input adjustment
+* teleop adjustment for estop and home/retract with planning
+* Set arm estop calls on the joystick controller
+* Removed wait on home arm server so that the node can be started while running only CARL's basic functionality
+* Switched home/retract actions to use motion planning, added home/retract/segment calls from joystick teleop
+* Contributors: David Kent
+
 0.0.13 (2015-01-21)
 -------------------
 

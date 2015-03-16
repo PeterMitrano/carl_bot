@@ -1,14 +1,13 @@
 <?xml version="1.0"?>
 <package>
   <name>carl_interactive_manipulation</name>
-  <version>0.0.13</version>
+  <version>0.0.16</version>
   <description>Interactive Manipulation for CARL</description>
 
   <author email="davidkent@wpi.edu">David Kent</author>
   <author email="pdmitrano@wpi.edu">Peter Mitrano</author>
   <maintainer email="davidkent@wpi.edu">David Kent</maintainer>
   <maintainer email="rctoris@wpi.edu">Russell Toris</maintainer>
-  <maintainer email="pdmitrano@wpi.edu">Peter Mitrano</maintainer>
 
   <url type="website">http://ros.org/wiki/carl_bot</url>
   <url type="bugtracker">https://github.com/WPI-RAIL/carl_bot/issues</url>
