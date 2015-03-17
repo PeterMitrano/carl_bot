@@ -64,15 +64,16 @@ void ClickableInteraction::initializeMarkers()
   else
   {
 
-    std::map<std::string, boost::shared_ptr<urdf::Link> > links = ilab.links_;
-    std::map<std::string, boost::shared_ptr<urdf::Link> >::iterator itr;
+    std::map <std::string, boost::shared_ptr<urdf::Link> > links = ilab.links_;
+    std::map < std::string, boost::shared_ptr < urdf::Link > > ::iterator
+    itr;
 
 //go through all links and filter out the ones that end in "nav_goal_link"
     for (itr = links.begin(); itr != links.end(); itr++)
     {
       std::string link_name = itr->first;
       Link_ptr link = itr->second;
-      std::pair<std::string, Link_ptr> link_pair = make_pair(link_name, link);
+      std::pair <std::string, Link_ptr> link_pair = make_pair(link_name, link);
 
       if (isParkingSpot(link_name))
       {
@@ -84,7 +85,7 @@ void ClickableInteraction::initializeMarkers()
       else if (isSurface(link_name))
       {
         ROS_INFO("creating surface %s", link_name.c_str());
-        visualization_msgs::InteractiveMarker marker = createSurface(link_name,link->collision->geometry.get());
+        visualization_msgs::InteractiveMarker marker = createSurface(link_name, link->collision->geometry.get());
         surface_links_.insert(link_pair);
         server_.insert(marker, boost::bind(&ClickableInteraction::onSurfaceClick, this, _1));
       }
@@ -153,8 +154,8 @@ void ClickableInteraction::onSurfaceClick(const visualization_msgs::InteractiveM
         }
       }
     }
-        link->collision->geometry.get();
-        ROS_INFO("geometry isn't null");
+
+    ROS_INFO("geometry isn't null");
 
     if (closest_parking_spot == NULL)
     {
@@ -199,18 +200,25 @@ void ClickableInteraction::onSurfaceClick(const visualization_msgs::InteractiveM
 
 
         geometry_msgs::PoseStamped trans_arm_pose;
+        //transforms required PoseStamped
         listener_.transformPose("base_footprint", ros::Time(0), arm_pose, arm_pose.header.frame_id, trans_arm_pose);
         trans_arm_pose.header = arm_pose.header;
 
-        //send action goal
+        //this goal uses just Pose not PoseStamped
+        //for some reason the compiler things pose doesn't have a position and orientation member...
         carl_moveit::MoveToPoseGoal goal;
-        goal.pose = trans_arm_pose.pose;
+        geometry_msgs::PoseStamped poseStamped = goal.pose;
+        poseStamped = trans_arm_pose;
 
-        ROS_INFO("POSITION XYZ: %f, %f, %f", goal.pose.position.x, goal.pose.position.y, goal.pose.position.z);
-        ROS_INFO("ORIENTATION XYZW: %f, %f, %f, %f", goal.pose.orientation.x,
-            goal.pose.orientation.y,
-            goal.pose.orientation.z,
-            goal.pose.orientation.w);
+        ROS_INFO("POSITION XYZ: %f, %f, %f",
+            poseStamped.pose.position.x,
+            poseStamped.pose.position.y,
+            poseStamped.pose.position.z);
+        ROS_INFO("ORIENTATION XYZW: %f, %f, %f, %f",
+            poseStamped.pose.orientation.x,
+            poseStamped.pose.orientation.y,
+            poseStamped.pose.orientation.z,
+            poseStamped.pose.orientation.w);
 
         arm_client_.sendGoal(goal);
 
