@@ -178,47 +178,27 @@ void ClickableInteraction::onSurfaceClick(const visualization_msgs::InteractiveM
       if (success)
       {
         //set arm goal now!
-
-        geometry_msgs::PoseStamped arm_pose;
-        arm_pose.header = f->header;
-        arm_pose.pose = f->pose;
-        arm_pose.pose.position.x += f->mouse_point.x;
-        arm_pose.pose.position.y += f->mouse_point.y;
-        arm_pose.pose.position.z += 0.1;
-
-        tf::Quaternion quaternion;
-        quaternion.setX(-0.6931);
-        quaternion.setY(-0.7208);
-        quaternion.setZ(-0.7208);
-        quaternion.setW(0.0005);
-        quaternion.normalize();
-
-        arm_pose.pose.orientation.x = quaternion.getX();
-        arm_pose.pose.orientation.y = quaternion.getY();
-        arm_pose.pose.orientation.z = quaternion.getZ();
-        arm_pose.pose.orientation.w = quaternion.getW();
-
-
-        geometry_msgs::PoseStamped trans_arm_pose;
-        //transforms required PoseStamped
-        listener_.transformPose("base_footprint", ros::Time(0), arm_pose, arm_pose.header.frame_id, trans_arm_pose);
-        trans_arm_pose.header = arm_pose.header;
-
-        //this goal uses just Pose not PoseStamped
-        //for some reason the compiler things pose doesn't have a position and orientation member...
         carl_moveit::MoveToPoseGoal goal;
-        geometry_msgs::PoseStamped poseStamped = goal.pose;
-        poseStamped = trans_arm_pose;
+        goal.pose.header = f->header;
+        goal.pose.pose = f->pose;
+        goal.pose.pose.position.x += f->mouse_point.x;
+        goal.pose.pose.position.y += f->mouse_point.y;
+        goal.pose.pose.position.z += 0.35;
 
         ROS_INFO("POSITION XYZ: %f, %f, %f",
-            poseStamped.pose.position.x,
-            poseStamped.pose.position.y,
-            poseStamped.pose.position.z);
+            goal.pose.pose.position.x,
+            goal.pose.pose.position.y,
+            goal.pose.pose.position.z);
         ROS_INFO("ORIENTATION XYZW: %f, %f, %f, %f",
-            poseStamped.pose.orientation.x,
-            poseStamped.pose.orientation.y,
-            poseStamped.pose.orientation.z,
-            poseStamped.pose.orientation.w);
+            goal.pose.pose.orientation.x,
+            goal.pose.pose.orientation.y,
+            goal.pose.pose.orientation.z,
+            goal.pose.pose.orientation.w);
+        ROS_INFO("IN THE FRAME %s",goal.pose.header.frame_id.c_str());
+
+        tf::StampedTransform tf;
+        listener_.lookupTransform("jaco_link_hand", goal.pose.header.frame_id, ros::Time(0), tf);
+        ROS_INFO("transform from hand to frame is %f %f %f",tf.getOrigin().getX(),tf.getOrigin().getY(),tf.getOrigin().getZ());
 
         arm_client_.sendGoal(goal);
 
