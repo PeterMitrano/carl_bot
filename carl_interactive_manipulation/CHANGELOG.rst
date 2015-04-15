@@ -2,6 +2,49 @@
 Changelog for package carl_interactive_manipulation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.0.25 (2015-04-10)
+-------------------
+
+0.0.24 (2015-04-06)
+-------------------
+
+0.0.23 (2015-04-03)
+-------------------
+* removed pickup from IM client
+* Contributors: Russell Toris
+
+0.0.22 (2015-04-03)
+-------------------
+
+0.0.21 (2015-03-31)
+-------------------
+* removed recognition
+* Contributors: Russell Toris
+
+0.0.20 (2015-03-31)
+-------------------
+* renamed topic
+* Contributors: Russell Toris
+
+0.0.19 (2015-03-27)
+-------------------
+
+0.0.18 (2015-03-27)
+-------------------
+* Fixed a text placement bug on recognized markers
+* Switched recognition functionality in interactive manipulation to use the new shared recognition actions
+* Merge branch 'develop' of github.com:WPI-RAIL/carl_bot into develop
+* Switched to the new ready/retract action provided by carl_moveit_common_actions
+* Contributors: David Kent
+
+0.0.17 (2015-03-24)
+-------------------
+* Added new recognition calls to carl_interactive_manipulation (note that pickup is still in progress and will not currently work)
+* updted message
+* Updated to reflect moving some messages from rail_segmentation to rail_manipulation_messages
+* Switched im to use new rail_manipulation_msgs
+* Contributors: David Kent, Russell Toris
+
 0.0.16 (2015-02-17)
 -------------------
 * Update package.xml

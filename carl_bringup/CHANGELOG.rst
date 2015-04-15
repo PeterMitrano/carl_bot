@@ -2,6 +2,54 @@
 Changelog for package carl_bringup
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.0.25 (2015-04-10)
+-------------------
+* flag for safety
+* removed bug in nav launch
+* navigation option added to CARL bringup
+* revert
+* navigation option added to CARL bringup
+* splash screen added
+* new default rviz config
+* Contributors: Russell Toris
+
+0.0.24 (2015-04-06)
+-------------------
+* refactor of RViz GUIs
+* Contributors: Russell Toris
+
+0.0.23 (2015-04-03)
+-------------------
+
+0.0.22 (2015-04-03)
+-------------------
+* new launch files for grasp collection
+* Fixed config file location in model generation launch file
+* Contributors: David Kent, Russell Toris
+
+0.0.21 (2015-03-31)
+-------------------
+
+0.0.20 (2015-03-31)
+-------------------
+* added segmentation topic
+* typo in config file name
+* added launch for recognition
+* Contributors: Russell Toris
+
+0.0.19 (2015-03-27)
+-------------------
+* added launch for carl grasp collection
+* Contributors: Russell Toris
+
+0.0.18 (2015-03-27)
+-------------------
+
+0.0.17 (2015-03-24)
+-------------------
+* limited output on phidgets initialization, added moveit stuff to carl_bringup launch
+* Contributors: David Kent
+
 0.0.16 (2015-02-17)
 -------------------
 
