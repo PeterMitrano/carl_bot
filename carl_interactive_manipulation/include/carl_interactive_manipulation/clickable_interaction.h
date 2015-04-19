@@ -18,6 +18,7 @@
 #include <visualization_msgs/InteractiveMarker.h>
 #include <actionlib/client/simple_action_client.h>
 #include <carl_moveit/MoveToPoseAction.h>
+#include <carl_moveit/ArmAction.h>
 #include <move_base_msgs/MoveBaseGoal.h>
 #include <tf/transform_listener.h>
 #include <carl_safety/Error.h>
@@ -29,6 +30,7 @@
 
 typedef actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction> MoveBaseClient;
 typedef actionlib::SimpleActionClient<carl_moveit::MoveToPoseAction> ArmClient;
+typedef actionlib::SimpleActionClient<carl_moveit::ArmAction> CommonActionsClient;
 typedef boost::shared_ptr<urdf::Link> Link_ptr;
 typedef std::map<std::string, Link_ptr> LinkMap;
 
@@ -52,6 +54,7 @@ private:
 
   MoveBaseClient move_base_client_; //!< uses move base client to set nav goals
   ArmClient arm_client_; //!< uses arm client to set arm goals
+  CommonActionsClient common_actions_client_;//!< home the arm before navigation anywhere!
   ros::Publisher safetyErrorPublisher_; //!< used to send feedback to the web-interface
   tf::TransformListener listener_; //!< uses tf to find closest parking spot
   std::map<std::string, boost::shared_ptr<urdf::Link> > parking_links_;

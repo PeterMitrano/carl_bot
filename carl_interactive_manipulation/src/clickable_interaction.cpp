@@ -17,7 +17,8 @@ int main(int argc, char **argv)
 ClickableInteraction::ClickableInteraction()
     : move_base_client_("move_base", true),
       arm_client_("carl_moveit_wrapper/move_to_pose", true),
-      server_("clickable_markers")
+      server_("clickable_markers"),
+      common_actions_client_("carl_moveit_wrapper/common_actions/arm_action", true)
 
 {
   ros::NodeHandle node;
@@ -101,9 +102,6 @@ void ClickableInteraction::onParkingClick(const visualization_msgs::InteractiveM
 {
   if (f->event_type == visualization_msgs::InteractiveMarkerFeedback::MOUSE_UP)
   {
-
-    //I SHOULD REALLY HOME THE ARM BEFORE DRIVING...
-
     bool success = moveToPose(f->pose, f->header);
     if (success)
     {
@@ -172,7 +170,6 @@ void ClickableInteraction::onSurfaceClick(const visualization_msgs::InteractiveM
     {
       ROS_INFO("closest nav goal is %s", closest_parking_spot->name.c_str());
 
-      ROS_INFO("hey peter don't forget to update the orientation...");
       geometry_msgs::Pose base_pose;
       base_pose.orientation.x = 0;
       base_pose.orientation.y = 0;
@@ -223,6 +220,13 @@ void ClickableInteraction::onSurfaceClick(const visualization_msgs::InteractiveM
 
 bool ClickableInteraction::moveToPose(geometry_msgs::Pose arm_pose, std_msgs::Header header)
 {
+
+  //HOME THE ARM FIRST
+  carl_moveit::ArmGoal homeGoal;
+  homeGoal.action = carl_moveit::ArmGoal::READY;
+  common_actions_client_.sendGoal(homeGoal);
+
+
   geometry_msgs::PoseStamped target_pose;
   target_pose.header = header;
   target_pose.pose = arm_pose;
