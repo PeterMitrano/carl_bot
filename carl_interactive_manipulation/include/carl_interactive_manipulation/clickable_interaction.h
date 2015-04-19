@@ -20,6 +20,7 @@
 #include <carl_moveit/MoveToPoseAction.h>
 #include <move_base_msgs/MoveBaseGoal.h>
 #include <tf/transform_listener.h>
+#include <carl_safety/Error.h>
 #include <move_base_msgs/MoveBaseAction.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/Pose.h>
@@ -50,7 +51,8 @@ public:
 private:
 
   MoveBaseClient move_base_client_; //!< uses move base client to set nav goals
-  ArmClient arm_client_; //!< uses arm client to set nav goals
+  ArmClient arm_client_; //!< uses arm client to set arm goals
+  ros::Publisher safetyErrorPublisher_; //!< used to send feedback to the web-interface
   tf::TransformListener listener_; //!< uses tf to find closest parking spot
   std::map<std::string, boost::shared_ptr<urdf::Link> > parking_links_;
   std::map<std::string, boost::shared_ptr<urdf::Link> > surface_links_;
@@ -58,20 +60,21 @@ private:
   interactive_markers::InteractiveMarkerServer server_; //!< creates marker server for clickable parking spots
 
   /**
-  * /brief Creates an interactive marker for the given link
+  * /brief Creates an parking marker for the given link
   * @param frame_id the frame id, or link name, to be used to create the marker
   * @return the interactive marker to be used as a clickable parking spot
   */
   visualization_msgs::InteractiveMarker createParkingSpot(std::string frame_id);
 
   /**
-  * /brief waits for actionlib servers
+  * /brief waits for actionlib servers and adds them to the interactive marker server
   */
-  void  initializeMarkers();
+  void initializeMarkers();
 
   /**
-  * /brief Creates an interactive marker for the given link
+  * /brief Creates a surface marker for the given link
   * @param frame_id the frame id, or link name, to be used to create the marker
+   * @param geom a pointer to the type of geometry to be used for the surface marker
   * @return the interactive marker to be used as a clickable surface
   */
   visualization_msgs::InteractiveMarker createSurface(std::string frame_id, const urdf::Geometry *geom);
@@ -84,9 +87,10 @@ private:
 
   /**
   * /brief Callback function for when surface marker is clicked. Sets move_base goal to carl & goal to arm. Carl will first navigate to the location, then point to the clicked spot.
-  * @param f contains information about where the marker was clicked, if it was a press or release, and the marker pose
+  * @param f contains information about where the marker was clicked (eg if it was a press or release, and the marker pose)
   */
   void onSurfaceClick(const visualization_msgs::InteractiveMarkerFeedbackConstPtr &f);
+
   /**
   * /brief moves carl to a given pose. used in the on click functions
   * @return true if successful, false if failed

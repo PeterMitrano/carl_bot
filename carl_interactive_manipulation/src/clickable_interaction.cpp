@@ -18,17 +18,19 @@ ClickableInteraction::ClickableInteraction()
     : move_base_client_("move_base", true),
       arm_client_("carl_moveit_wrapper/move_to_pose", true),
       server_("clickable_markers")
+
 {
+  ros::NodeHandle node;
+  safetyErrorPublisher_ = node.advertise<carl_safety::Error>("carl_safety/error", 1);
 
   ROS_INFO("waiting for servers...");
-
 
   //first, connect to the two actionlib servers
   bool status = move_base_client_.waitForServer();
 
   if (!status)
   {
-    ROS_INFO("Couldn't connect to move_base in time...");
+    ROS_INFO("Couldn't connect to move_base.");
   }
   else
   {
@@ -38,13 +40,11 @@ ClickableInteraction::ClickableInteraction()
 
     if (!status)
     {
-      ROS_INFO("Couldn't connect to carl_moveit_wrapper/move_to_pose in time...");
+      ROS_INFO("Couldn't connect to carl_moveit_wrapper/move_to_pose.");
     }
     else
     {
-
       ROS_INFO("connected to carl_moveit_wrapper/move_to_pose");
-
       initializeMarkers();
 
     }
@@ -64,16 +64,15 @@ void ClickableInteraction::initializeMarkers()
   else
   {
 
-    std::map <std::string, boost::shared_ptr<urdf::Link> > links = ilab.links_;
-    std::map < std::string, boost::shared_ptr < urdf::Link > > ::iterator
-    itr;
+    std::map<std::string, boost::shared_ptr<urdf::Link> > links = ilab.links_;
+    std::map<std::string, boost::shared_ptr<urdf::Link> >::iterator itr;
 
-//go through all links and filter out the ones that end in "nav_goal_link"
+    //go through all links and filter out the ones that end in "nav_goal_link"
     for (itr = links.begin(); itr != links.end(); itr++)
     {
       std::string link_name = itr->first;
       Link_ptr link = itr->second;
-      std::pair <std::string, Link_ptr> link_pair = make_pair(link_name, link);
+      std::pair<std::string, Link_ptr> link_pair = make_pair(link_name, link);
 
       if (isParkingSpot(link_name))
       {
@@ -93,7 +92,7 @@ void ClickableInteraction::initializeMarkers()
 
     ROS_INFO("creating clickable nav goals & pointing spots...");
 
-//when these are called the markers will actually appear
+    //when these are called the markers will actually appear
     server_.applyChanges();
   }
 }
@@ -103,8 +102,8 @@ void ClickableInteraction::onParkingClick(const visualization_msgs::InteractiveM
   if (f->event_type == visualization_msgs::InteractiveMarkerFeedback::MOUSE_UP)
   {
 
-//copy header and pose from marker to new action goal
-//rotate 90 deg around z axis
+    //I SHOULD REALLY HOME THE ARM BEFORE DRIVING...
+
     bool success = moveToPose(f->pose, f->header);
     if (success)
     {
@@ -113,6 +112,10 @@ void ClickableInteraction::onParkingClick(const visualization_msgs::InteractiveM
     else
     {
       ROS_INFO("timed out! goal not reached");
+      carl_safety::Error error;
+      error.message = "Goal not reached! Navigation timed out";
+      error.severity = 0;
+      safetyErrorPublisher_.publish(error);
     }
   }
 }
@@ -160,11 +163,16 @@ void ClickableInteraction::onSurfaceClick(const visualization_msgs::InteractiveM
     if (closest_parking_spot == NULL)
     {
       ROS_INFO("no closest nav goal found");
+      carl_safety::Error error;
+      error.message = "No navigation goal found within reach of surface!";
+      error.severity = 0;
+      safetyErrorPublisher_.publish(error);
     }
     else
     {
       ROS_INFO("closest nav goal is %s", closest_parking_spot->name.c_str());
 
+      ROS_INFO("hey peter don't forget to update the orientation...");
       geometry_msgs::Pose base_pose;
       base_pose.orientation.x = 0;
       base_pose.orientation.y = 0;
@@ -183,39 +191,31 @@ void ClickableInteraction::onSurfaceClick(const visualization_msgs::InteractiveM
         goal.pose.pose = f->pose;
         goal.pose.pose.position.x += f->mouse_point.x;
         goal.pose.pose.position.y += f->mouse_point.y;
-        goal.pose.pose.position.z += 0.35;
-
-        ROS_INFO("POSITION XYZ: %f, %f, %f",
-            goal.pose.pose.position.x,
-            goal.pose.pose.position.y,
-            goal.pose.pose.position.z);
-        ROS_INFO("ORIENTATION XYZW: %f, %f, %f, %f",
-            goal.pose.pose.orientation.x,
-            goal.pose.pose.orientation.y,
-            goal.pose.pose.orientation.z,
-            goal.pose.pose.orientation.w);
-        ROS_INFO("IN THE FRAME %s",goal.pose.header.frame_id.c_str());
+        goal.pose.pose.position.z += 0.2;
 
         tf::StampedTransform tf;
         listener_.lookupTransform("jaco_link_hand", goal.pose.header.frame_id, ros::Time(0), tf);
-        ROS_INFO("transform from hand to frame is %f %f %f",tf.getOrigin().getX(),tf.getOrigin().getY(),tf.getOrigin().getZ());
+        ROS_INFO("transform from hand to frame is %f %f %f", tf.getOrigin().getX(), tf.getOrigin().getY(),
+                 tf.getOrigin().getZ());
 
         arm_client_.sendGoal(goal);
 
         success = move_base_client_.waitForResult();
 
-        if (success > 0)
+        if (success < 0)
         {
-          ROS_INFO("TASK ACCOMPLISHED: %d", success);
-        }
-        else
-        {
-          ROS_INFO("timed out! arm pose not reached");
+          carl_safety::Error error;
+          error.message = "Arm pose not reached! It probably timed out";
+          error.severity = 0;
+          safetyErrorPublisher_.publish(error);
         }
       }
       else
       {
-        ROS_INFO("timed out! goal not reached");
+        carl_safety::Error error;
+        error.message = "Driving goal not reached! It probably timed out";
+        error.severity = 0;
+        safetyErrorPublisher_.publish(error);
       }
     }
   }
@@ -227,27 +227,14 @@ bool ClickableInteraction::moveToPose(geometry_msgs::Pose arm_pose, std_msgs::He
   target_pose.header = header;
   target_pose.pose = arm_pose;
 
-//create goal
+  //create goal
   move_base_msgs::MoveBaseGoal goal;
   goal.target_pose = target_pose;
 
-  ROS_INFO("moving to %f, %f in frame %s",
-      target_pose.pose.orientation.x,
-      target_pose.pose.orientation.y,
-      header.frame_id.c_str());
-//send action goal
+  //send action goal
   move_base_client_.sendGoal(goal);
 
-  bool finished_before_timeout = move_base_client_.waitForResult();
-
-  if (finished_before_timeout)
-  {
-    return true;
-  }
-  else
-  {
-    return false;
-  }
+  return move_base_client_.waitForResult();
 }
 
 bool ClickableInteraction::isParkingSpot(std::string link_name)
@@ -290,8 +277,9 @@ visualization_msgs::InteractiveMarker ClickableInteraction::createParkingSpot(st
   return int_marker;
 }
 
+//this theoreticall supports surfaces of different models types, although I've only tested it with boxes so far
 visualization_msgs::InteractiveMarker ClickableInteraction::createSurface(std::string frame_id,
-    const urdf::Geometry *geom)
+                                                                          const urdf::Geometry *geom)
 {
   visualization_msgs::InteractiveMarker int_marker;
   int_marker.header.frame_id = frame_id;
