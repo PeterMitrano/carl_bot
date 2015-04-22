@@ -121,8 +121,8 @@ visualization_msgs::InteractiveMarker CreateParkingSpots::createParkingSpot(std:
   box.scale.y = 0.15;
   box.scale.z = 0.05;
   box.color.r = 0;
-  box.color.g = 0.5;
-  box.color.b = 0.25;
+  box.color.g = 0.15;
+  box.color.b = 0.3;
   box.color.a = 1;
  
   control.markers.push_back(box);
