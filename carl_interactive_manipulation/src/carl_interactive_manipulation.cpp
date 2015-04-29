@@ -8,6 +8,7 @@ CarlInteractiveManipulation::CarlInteractiveManipulation() :
     acPickup("carl_moveit_wrapper/common_actions/pickup", true)
 {
   joints.resize(6);
+  lastRetractedFeedback = ros::Time::now();
 
   //read parameters
   ros::NodeHandle pnh("~");
@@ -28,8 +29,9 @@ CarlInteractiveManipulation::CarlInteractiveManipulation() :
   jacoFkClient = n.serviceClient<wpi_jaco_msgs::JacoFK>("jaco_arm/kinematics/fk");
   qeClient = n.serviceClient<wpi_jaco_msgs::QuaternionToEuler>("jaco_conversions/quaternion_to_euler");
   //pickupSegmentedClient = n.serviceClient<rail_pick_and_place_msgs::PickupSegmentedObject>("rail_pick_and_place/pickup_segmented_object");
-  removeObjectClient = n.serviceClient<rail_segmentation::RemoveObject>("rail_segmentation/remove_object");
+  removeObjectClient = n.serviceClient<rail_pick_and_place_msgs::RemoveObject>("rail_segmentation/remove_object");
   detachObjectsClient = n.serviceClient<std_srvs::Empty>("carl_moveit_wrapper/detach_objects");
+  armAngularPositionClient = n.serviceClient<wpi_jaco_msgs::GetAngularPosition>("jaco_arm/get_angular_position");
 
   //actionlib
   ROS_INFO("Waiting for grasp action servers...");
@@ -41,6 +43,13 @@ CarlInteractiveManipulation::CarlInteractiveManipulation() :
   lockPose = false;
   movingArm = false;
   disableArmMarkerCommands = false;
+  retractPos.resize(6);
+  retractPos[0] = -2.57;
+  retractPos[1] = 1.39;
+  retractPos[2] = .527;
+  retractPos[3] = -.084;
+  retractPos[4] = .515;
+  retractPos[5] = -1.745;
 
   imServer.reset(
       new interactive_markers::InteractiveMarkerServer("carl_interactive_manipulation", "carl_markers", false));
@@ -80,6 +89,8 @@ void CarlInteractiveManipulation::updateJoints(const sensor_msgs::JointState::Co
 void CarlInteractiveManipulation::segmentedObjectsCallback(
     const rail_manipulation_msgs::SegmentedObjectList::ConstPtr& objectList)
 {
+  boost::recursive_mutex::scoped_lock lock(api_mutex); //lock for object list
+
   //store list of objects
   segmentedObjectList = *objectList;
 
@@ -178,6 +189,8 @@ void CarlInteractiveManipulation::segmentedObjectsCallback(
 
 void CarlInteractiveManipulation::clearSegmentedObjects()
 {
+  boost::recursive_mutex::scoped_lock lock(api_mutex); //lock for object list
+
   for (unsigned int i = 0; i < segmentedObjects.size(); i++)
   {
     stringstream ss;
@@ -292,24 +305,13 @@ void CarlInteractiveManipulation::makeHandMarker()
   menuHandler.apply(*imServer, iMarker.name);
 }
 
-//void CarlInteractiveManipulation::processRecognizeMarkerFeedback(
-//    const visualization_msgs::InteractiveMarkerFeedbackConstPtr &feedback)
-//{
-//  if (feedback->event_type == visualization_msgs::InteractiveMarkerFeedback::MENU_SELECT)
-//  {
-//    int objectIndex = atoi(feedback->marker_name.substr(6).c_str());
-//    rail_manipulation_msgs::RecognizeGoal goal;
-//    goal.index = objectIndex;
-//    acRecognize.sendGoal(goal);
-//    acRecognize.waitForResult(ros::Duration(10.0));
-//  }
-//}
-
 void CarlInteractiveManipulation::processPickupMarkerFeedback(
     const visualization_msgs::InteractiveMarkerFeedbackConstPtr &feedback)
 {
   if (feedback->event_type == visualization_msgs::InteractiveMarkerFeedback::MENU_SELECT)
   {
+    boost::recursive_mutex::scoped_lock lock(api_mutex); //lock for segmented objects
+
     carl_moveit::PickupGoal pickupGoal;
     pickupGoal.lift = true;
     pickupGoal.verify = false;
@@ -324,7 +326,7 @@ void CarlInteractiveManipulation::processPickupMarkerFeedback(
       carl_moveit::PickupResultConstPtr pickupResult = acPickup.getResult();
       if (!pickupResult->success)
       {
-	ROS_INFO("PICKUP FAILED, moving on to a new grasp...");
+        ROS_INFO("PICKUP FAILED, moving on to a new grasp...");
         continue;
       }
 
@@ -343,6 +345,8 @@ void CarlInteractiveManipulation::processRemoveMarkerFeedback(const visualizatio
 {
   if (feedback->event_type == visualization_msgs::InteractiveMarkerFeedback::MENU_SELECT)
   {
+    boost::recursive_mutex::scoped_lock lock(api_mutex); //lock for object list
+
     if (!removeObjectMarker(atoi(feedback->marker_name.substr(6).c_str())))
       return;
 
@@ -352,8 +356,8 @@ void CarlInteractiveManipulation::processRemoveMarkerFeedback(const visualizatio
 
 bool CarlInteractiveManipulation::removeObjectMarker(int index)
 {
-  rail_segmentation::RemoveObject::Request req;
-  rail_segmentation::RemoveObject::Response res;
+  rail_pick_and_place_msgs::RemoveObject::Request req;
+  rail_pick_and_place_msgs::RemoveObject::Response res;
   req.index = index;
   if (!removeObjectClient.call(req, res))
   {
@@ -428,6 +432,18 @@ void CarlInteractiveManipulation::processHandMarkerFeedback(
     {
       if (!(lockPose || disableArmMarkerCommands))
       {
+        if (isArmRetracted())
+        {
+          if (ros::Time::now().toSec() - lastRetractedFeedback.toSec() >= 5.0)
+          {
+            carl_safety::Error armRetractedError;
+            armRetractedError.message = "Arm is retracted. Ready the arm before moving it.";
+            armRetractedError.severity = 0;
+            armRetractedError.resolved = false;
+            safetyErrorPublisher.publish(armRetractedError);
+          }
+        }
+
         movingArm = true;
 
         acGripper.cancelAllGoals();
@@ -638,6 +654,29 @@ void CarlInteractiveManipulation::armCollisionRecovery()
   armCollisionErrorResolved.severity = 1;
   armCollisionErrorResolved.resolved = true;
   safetyErrorPublisher.publish(armCollisionErrorResolved);
+}
+
+bool CarlInteractiveManipulation::isArmRetracted()
+{
+  float dstFromRetract = 0;
+
+  //get joint positions
+  wpi_jaco_msgs::GetAngularPosition::Request req;
+  wpi_jaco_msgs::GetAngularPosition::Response res;
+  if(!armAngularPositionClient.call(req, res))
+  {
+    ROS_INFO("Could not call Jaco joint position service.");
+    return false;
+  }
+
+  for (unsigned int i = 0; i < 6; i ++)
+  {
+    dstFromRetract += fabs(retractPos[i] - res.pos[i]);
+  }
+
+  if (dstFromRetract > 0.175)
+    return false;
+  return true;
 }
 
 int main(int argc, char **argv)

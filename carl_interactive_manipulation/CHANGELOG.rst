@@ -2,6 +2,18 @@
 Changelog for package carl_interactive_manipulation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.0.29 (2015-04-29)
+-------------------
+* Lowered error level on retracted arm movement feedback
+* Added feedback on attempted arm move while arm is retracted
+* Contributors: David Kent
+
+0.0.28 (2015-04-27)
+-------------------
+* Switched remove functionality to remove objects from the recognized list instead of the segmented list
+* Updated feedback message
+* Contributors: David Kent
+
 0.0.27 (2015-04-22)
 -------------------
 * Debug statement cleanup
