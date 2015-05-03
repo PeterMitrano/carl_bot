@@ -18,6 +18,7 @@
 #include <interactive_markers/interactive_marker_server.h>
 #include <visualization_msgs/InteractiveMarker.h>
 #include <actionlib/client/simple_action_client.h>
+ #include <carl_safety/Error.h>
 #include <move_base_msgs/MoveBaseGoal.h>
 #include <move_base_msgs/MoveBaseAction.h>
 #include <geometry_msgs/PoseStamped.h>
@@ -46,6 +47,8 @@ private:
 	MoveBaseClient client_; //!< uses move base client to set nav goals
 
 	interactive_markers::InteractiveMarkerServer server_; //!< creates marker server for clickable parking spots
+
+	ros::Publisher statusPublisher_; //!< publishes status of auto-nav
 	
 	/**
    	* /brief Creates an interactive marker for the given link

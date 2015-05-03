@@ -16,6 +16,11 @@ int main(int argc, char** argv)
 
 CreateParkingSpots::CreateParkingSpots() : client_("move_base",true),server_("parking_markers")
 {
+
+
+  ros::NodeHandle node("~");
+  statusPublisher_ = node.advertise<carl_safety::Error>("status", 100);
+
   ROS_INFO("waiting for server...");
   
   bool status = client_.waitForServer();
@@ -85,16 +90,17 @@ void CreateParkingSpots::onClick(const visualization_msgs::InteractiveMarkerFeed
     //send action goal
     client_.sendGoal(goal);
 
-    bool finished_before_timeout = client_.waitForResult();
-
-    if (finished_before_timeout)
-    {
-      ROS_INFO("finished successfully!");
-    }
-    else 
-    {
-      ROS_INFO("timed out! goal not reached in 30 seconds");
-    }
+    carl_safety::Error begin;
+    begin.message = "Starting Auto-Navigation";
+    begin.severity = 0;
+    statusPublisher_.publish(begin);
+    ROS_INFO("starting");
+    client_.waitForResult();
+    ROS_INFO("finished");
+//    carl_safety::Error end;
+//    end.message = "Auto-Navigation goal reached";
+//    end.severity = 0;
+//    statusPublisher_.publish(end);
   }   
 }
 
