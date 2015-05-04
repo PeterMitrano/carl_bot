@@ -94,13 +94,18 @@ void CreateParkingSpots::onClick(const visualization_msgs::InteractiveMarkerFeed
     begin.message = "Starting Auto-Navigation";
     begin.severity = 0;
     statusPublisher_.publish(begin);
-    ROS_INFO("starting");
-    client_.waitForResult();
-    ROS_INFO("finished");
-//    carl_safety::Error end;
-//    end.message = "Auto-Navigation goal reached";
-//    end.severity = 0;
-//    statusPublisher_.publish(end);
+
+    bool success = client_.waitForResult();
+    
+    carl_safety::Error end;
+    if (success){
+      end.message = "Auto-Navigation goal reached";
+    }
+    else {
+      end.message = "Auto-Navigation failed!";	
+    }
+    end.severity = 0;
+    statusPublisher_.publish(end);
   }   
 }
 
